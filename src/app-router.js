@@ -3,7 +3,7 @@
   var utilities = {};
   var importedURIs = {};
   var isIE = 'ActiveXObject' in window;
-  var isEdge = (!!window.navigator.userAgent.match(/Edge/));
+  var isEdge = !!window.navigator.userAgent.match(/Edge/);
   var previousUrl = {};
 
   // <app-router
@@ -27,13 +27,13 @@
   //   bindRouter
   //   ></app-route>
   document.registerElement('app-route', {
-    prototype: Object.create(HTMLElement.prototype)
+    prototype: Object.create(HTMLElement.prototype),
   });
 
   // Initial set up when attached
   AppRouter.attachedCallback = function() {
     // init="auto|manual"
-    if(this.getAttribute('init') !== 'manual') {
+    if (this.getAttribute('init') !== 'manual') {
       this.init();
     }
   };
@@ -155,7 +155,7 @@
       var popstateEvent = new PopStateEvent('popstate', {
         bubbles: false,
         cancelable: false,
-        state: currentState
+        state: currentState,
       });
 
       if ('dispatchEvent_' in window) {
@@ -165,7 +165,7 @@
         // normal
         window.dispatchEvent(popstateEvent);
       }
-    } catch(error) {
+    } catch (error) {
       // Internet Exploder
       var fallbackEvent = document.createEvent('CustomEvent');
       fallbackEvent.initCustomEvent('popstate', false, false, { state: currentState });
@@ -194,7 +194,12 @@
     var url = utilities.parseUrl(window.location.href, router.getAttribute('mode'));
 
     // don't load a new route if only the hash fragment changed
-    if (url.hash !== previousUrl.hash && url.path === previousUrl.path && url.search === previousUrl.search && url.isHashPath === previousUrl.isHashPath) {
+    if (
+      url.hash !== previousUrl.hash &&
+      url.path === previousUrl.path &&
+      url.search === previousUrl.search &&
+      url.isHashPath === previousUrl.isHashPath
+    ) {
       if (router.getAttribute('scroll-to-hash') !== 'disabled') {
         scrollToHash(url.hash);
       }
@@ -206,7 +211,7 @@
     // fire a state-change event on the app-router and return early if the user called event.preventDefault()
     var eventDetail = {
       path: url.path,
-      state: window.history.state
+      state: window.history.state,
     };
     if (!fire('state-change', eventDetail, router)) {
       return;
@@ -215,7 +220,15 @@
     // find the first matching route
     var route = router.firstElementChild;
     while (route) {
-      if (route.tagName === 'APP-ROUTE' && utilities.testRoute(route.getAttribute('path'), url.path, router.getAttribute('trailingSlash'), route.hasAttribute('regex'))) {
+      if (
+        route.tagName === 'APP-ROUTE' &&
+        utilities.testRoute(
+          route.getAttribute('path'),
+          url.path,
+          router.getAttribute('trailingSlash'),
+          route.hasAttribute('regex')
+        )
+      ) {
         activateRoute(router, route, url);
         return;
       }
@@ -228,7 +241,8 @@
   // Activate the route
   function activateRoute(router, route, url) {
     if (route.hasAttribute('redirect')) {
-      router.go(route.getAttribute('redirect'), {replace: true});
+      var url = route.getAttribute('redirect') + window.location.search;
+      router.go(url, { replace: true });
       return;
     }
 
@@ -241,7 +255,7 @@
       path: url.path,
       route: route,
       oldRoute: router.activeRoute,
-      state: window.history.state
+      state: window.history.state,
     };
     if (!fire('activate-route-start', eventDetail, router)) {
       return;
@@ -300,7 +314,9 @@
       var errorDetail = {
         errorEvent: event,
         importUri: importUri,
-        routeDetail: eventDetail
+        route: route,
+        url: url,
+        routeDetail: eventDetail,
       };
       fire('import-error', errorDetail, router);
       fire('import-error', errorDetail, route);
@@ -348,7 +364,17 @@
         activateTemplate(router, template, route, url, eventDetail);
       } else {
         // custom element
-        activateCustomElement(router, route.getAttribute('element') || importUri.split('/').slice(-1)[0].replace('.html', ''), route, url, eventDetail);
+        activateCustomElement(
+          router,
+          route.getAttribute('element') ||
+            importUri
+              .split('/')
+              .slice(-1)[0]
+              .replace('.html', ''),
+          route,
+          url,
+          eventDetail
+        );
       }
     }
   }
@@ -377,7 +403,13 @@
 
   // Create the route's model
   function createModel(router, route, url, eventDetail) {
-    var model = utilities.routeArguments(route.getAttribute('path'), url.path, url.search, route.hasAttribute('regex'), router.getAttribute('typecast') === 'auto');
+    var model = utilities.routeArguments(
+      route.getAttribute('path'),
+      url.path,
+      url.search,
+      route.hasAttribute('regex'),
+      router.getAttribute('typecast') === 'auto'
+    );
     if (route.hasAttribute('bindRouter') || router.hasAttribute('bindRouter')) {
       model.router = router;
     }
@@ -389,9 +421,13 @@
 
   // Copy properties from one object to another
   function setObjectProperties(object, model) {
+    var setProperties = typeof object.setAttribute === 'function';
     for (var property in model) {
       if (model.hasOwnProperty(property)) {
         object[property] = model[property];
+        if (setProperties) {
+          object.setAttribute(property, model[property]);
+        }
       }
     }
   }
@@ -431,7 +467,11 @@
     }
 
     // scroll to the URL hash if it's present
-    if (url.hash && !router.hasAttribute('core-animated-pages') && router.getAttribute('scroll-to-hash') !== 'disabled') {
+    if (
+      url.hash &&
+      !router.hasAttribute('core-animated-pages') &&
+      router.getAttribute('scroll-to-hash') !== 'disabled'
+    ) {
       scrollToHash(url.hash);
     }
 
@@ -470,7 +510,9 @@
     setTimeout(function() {
       var hashElement;
       try {
-        hashElement = document.querySelector('html /deep/ ' + hash) || document.querySelector('html /deep/ [name="' + hash.substring(1) + '"]');
+        hashElement =
+          document.querySelector('html /deep/ ' + hash) ||
+          document.querySelector('html /deep/ [name="' + hash.substring(1) + '"]');
       } catch (e) {
         // DOM exception 12 (unknown selector) is thrown in Firefox, Safari etc. when using Polymer 1.x Shady DOM mode
         hashElement = document.querySelector(hash) || document.querySelector('[name="' + hash.substring(1) + '"]');
@@ -495,7 +537,7 @@
   // Note: The location must be a fully qualified URL with a protocol like 'http(s)://'
   utilities.parseUrl = function(location, mode) {
     var url = {
-      isHashPath: mode === 'hash'
+      isHashPath: mode === 'hash',
     };
 
     if (typeof URL === 'function') {
@@ -569,10 +611,10 @@
     // handle trailing slashes (options: strict (default), ignore)
     if (trailingSlashOption === 'ignore') {
       // remove trailing / from the route path and URL path
-      if(urlPath.slice(-1) === '/') {
+      if (urlPath.slice(-1) === '/') {
         urlPath = urlPath.slice(0, -1);
       }
-      if(routePath.slice(-1) === '/' && !isRegExp) {
+      if (routePath.slice(-1) === '/' && !isRegExp) {
         routePath = routePath.slice(0, -1);
       }
     }
@@ -593,7 +635,7 @@
     }
 
     // recursively test if the segments match (start at 1 because 0 is always an empty string)
-    return segmentsMatch(routePath.split('/'), 1, urlPath.split('/'), 1)
+    return segmentsMatch(routePath.split('/'), 1, urlPath.split('/'), 1);
   };
 
   // segmentsMatch(routeSegments, routeIndex, urlSegments, urlIndex, pathVariables)
@@ -711,12 +753,10 @@
     var options = '';
     if (pattern.slice(-1) === '/') {
       pattern = pattern.slice(0, -1);
-    }
-    else if (pattern.slice(-2) === '/i') {
+    } else if (pattern.slice(-2) === '/i') {
       pattern = pattern.slice(0, -2);
       options = 'i';
-    }
-    else {
+    } else {
       // must end with a slash followed by zero or more options
       return false;
     }
@@ -724,7 +764,6 @@
   };
 
   document.registerElement('app-router', {
-    prototype: AppRouter
+    prototype: AppRouter,
   });
-
 })(window, document);
